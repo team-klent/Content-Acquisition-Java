@@ -1,17 +1,18 @@
 package com.innodata.application.test;
 
 import java.io.File;
-import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.file.Files;
+import java.util.Scanner;
 import javax.swing.JFileChooser;
 import javax.swing.UIManager;
-import java.util.Scanner;
+import org.json.JSONObject;
 
 public class FileUploadTest {
 
-    private static final String UPLOAD_API_URL = "http://localhost:8080/api/files/upload"; // Spring Boot API
+    private static final String FILE_IO_URL = "https://file.io";
 
     public static void main(String[] args) {
         try {
@@ -19,18 +20,22 @@ public class FileUploadTest {
             File userFile = selectFile();
 
             if (userFile == null) {
-                System.out.println("No file selected. Exiting...");
+                System.out.println("❌ No file selected. Exiting...");
                 return;
             }
 
-            // Step 2: Upload the file via the API
-            boolean uploadSuccess = uploadFile(userFile);
+            // Step 2: Upload the file to File.io
+            String response = uploadFile(userFile);
 
-            // Step 3: Print result
-            if (uploadSuccess) {
-                System.out.println("File uploaded successfully!");
+            // Step 3: Verify upload success
+            if (response != null) {
+                System.out.println("✅ File uploaded successfully!");
+                JSONObject jsonResponse = new JSONObject(response);
+                if (jsonResponse.has("link")) {
+                    System.out.println("🔗 Download Link: " + jsonResponse.getString("link"));
+                }
             } else {
-                System.out.println("File upload failed!");
+                System.out.println("❌ File upload failed!");
             }
 
         } catch (Exception e) {
@@ -39,8 +44,8 @@ public class FileUploadTest {
     }
 
     /**
-     * Open file chooser dialog for the user to select a file.
-     * @return The selected file, or wala if no file .
+     * Opens a file chooser dialog for the user to select a file.
+     * @return The selected file, or null if none.
      */
     private static File selectFile() {
         try {
@@ -50,7 +55,6 @@ public class FileUploadTest {
 
             int result = fileChooser.showOpenDialog(null);
             return (result == JFileChooser.APPROVE_OPTION) ? fileChooser.getSelectedFile() : null;
-
         } catch (Exception e) {
             System.err.println("Error selecting file: " + e.getMessage());
             return null;
@@ -58,28 +62,45 @@ public class FileUploadTest {
     }
 
     /**
-     * Upload file using an HTTP POST request to the Spring Boot API.
+     * Uploads the file using an HTTP POST request to File.io.
      * @param file The file to be uploaded.
-     * @return true - successful, else false .
+     * @return JSON response confirming success or null if failed.
      */
-    private static boolean uploadFile(File file) {
+    private static String uploadFile(File file) {
         try {
-            // Open connection to API
-            HttpURLConnection connection = (HttpURLConnection) new URL(UPLOAD_API_URL).openConnection();
+            HttpURLConnection connection = (HttpURLConnection) new URL(FILE_IO_URL).openConnection();
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
             connection.setRequestProperty("Content-Type", "multipart/form-data");
 
             // Write file data to request
-            Files.copy(file.toPath(), connection.getOutputStream());
+            try (OutputStream os = connection.getOutputStream(); FileInputStream fis = new FileInputStream(file)) {
+                byte[] buffer = new byte[4096];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    os.write(buffer, 0, bytesRead);
+                }
+            }
 
             // Get response code
             int responseCode = connection.getResponseCode();
-            return responseCode == 200;
 
-        } catch (IOException e) {
+            // Read and return response if successful
+            if (responseCode == 200) {
+                Scanner scanner = new Scanner(connection.getInputStream());
+                StringBuilder response = new StringBuilder();
+                while (scanner.hasNext()) {
+                    response.append(scanner.nextLine());
+                }
+                scanner.close();
+                return response.toString();
+            } else {
+                return null;
+            }
+
+        } catch (Exception e) {
             System.err.println("Upload failed: " + e.getMessage());
-            return false;
+            return null;
         }
     }
 }
