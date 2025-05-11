@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Spring Boot File Upload</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input[type="file"] {
+      margin-bottom: 10px;
+    }
+    #file-list {
+      margin-top: 20px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    table, th, td {
+      border: 1px solid #ccc;
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Upload File</h2>
+  <form id="uploadForm">
+    <input type="file" id="fileInput" name="file" required />
+    <button type="submit">Upload</button>
+  </form>
+
+  <h3>Uploaded Files</h3>
+  <div id="file-list">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Filename</th>
+          <th>Type</th>
+          <th>Size (bytes)</th>
+          <th>Path</th>
+        </tr>
+      </thead>
+      <tbody id="filesTableBody"></tbody>
+    </table>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('fileInput');
+    const filesTableBody = document.getElementById('filesTableBody');
+
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch('/api/register-job-batch-file', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+		const responseData = await response.json();
+		console.log(responseData);
+        alert("File uploaded successfully!");
+        loadFiles();
+      } else {
+		const responseData = await response.json();
+		console.log(responseData);
+        alert("Failed to upload file.");
+      }
+    });
+
+    async function loadFiles() {
+      const res = await fetch('/api/load');
+      const files = await res.json();
+
+      filesTableBody.innerHTML = '';
+      files.forEach(file => {
+        const row = `<tr>
+          <td>${file.id}</td>
+          <td>${file.fileName}</td>
+          <td>${file.fileType}</td>
+          <td>${file.size}</td>
+          <td>${file.filePath}</td>
+        </tr>`;
+        filesTableBody.innerHTML += row;
+      });
+    }
+
+    // Load files on page load
+    loadFiles();
+  </script>
+</body>
+</html>
