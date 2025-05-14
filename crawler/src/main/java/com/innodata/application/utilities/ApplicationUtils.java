@@ -1,10 +1,9 @@
 package com.innodata.application.utilities;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -12,10 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.innodata.application.model.FileModel;
 
 @Service
 public class ApplicationUtils {
@@ -28,55 +26,66 @@ public class ApplicationUtils {
 	
 	@Value("${content.acquisition.task.uid}")
 	private String TASK_UID;
-	
-	@Value("${ia.api.token}")
-	private String API_TOKEN;
-	
-    public File fileConversion(MultipartFile multipartFile) throws IOException {
-        File convertedFile = new File(multipartFile.getOriginalFilename());
-        try (FileOutputStream fos = new FileOutputStream(convertedFile)) {
-            fos.write(multipartFile.getBytes());
-        }
-        return convertedFile;
-    }
     
     public ResponseEntity<HashMap<String, Object>> generateErrorResponse(String errMessage, HttpStatus status) {
-    	HashMap<String, Object> data = new HashMap<String, Object>();
-    	data.put("message", errMessage);
-    	
+    	HashMap<String, Object> resBody = generateCommonResBody();
+		resBody.put("message", errMessage);
     	HttpHeaders headers = generateHeaders();
-    	ResponseEntity<HashMap<String, Object>> errResponse = new ResponseEntity<HashMap<String, Object>>(data, headers, status);
+    	
+    	ResponseEntity<HashMap<String, Object>> errResponse = new ResponseEntity<HashMap<String, Object>>(resBody, headers, status);
     	return errResponse;
     }
     
-    public ResponseEntity<HashMap<String, Object>> generateSuccessResponse(String successMessage, HttpStatus status) throws JsonProcessingException {
+    public ResponseEntity<HashMap<String, Object>> generateUploadResponse(String successMessage, Object data) {
 		
-		HashMap<String, Object> data = new HashMap<String, Object>();
-		data.put("message", successMessage);
-		data.put("project_code", PROJECT_CODE);
-		data.put("workflow_code", WORKFLOW_CODE);
-		data.put("first_task_uid", TASK_UID);
-		data.put("file_unique_identifier", "unique");
-		data.put("file_name", "unique.txt");
-		data.put("file_path", "-");
-
-		Map<String, String> metaData = new HashMap<>();
-		metaData.put("M1", "V1");
-		metaData.put("M2", "V2");
-		ObjectMapper objectMapper = new ObjectMapper();
-		String metaDataJson = objectMapper.writeValueAsString(metaData);
-
-		data.put("meta_data", metaDataJson);
-    	
+		HashMap<String, Object> resBody = generateCommonResBody();
+		resBody.put("message", successMessage);
+		resBody.put("data", data);
+    	resBody.put("url", generateURL(resBody));
     	HttpHeaders headers = generateHeaders();
-    	ResponseEntity<HashMap<String, Object>> successResponse = new ResponseEntity<HashMap<String, Object>>(data, headers, status);
+    	
+    	ResponseEntity<HashMap<String, Object>> successResponse = new ResponseEntity<HashMap<String, Object>>(resBody, headers, HttpStatus.OK);
     	return successResponse;
+    }
+    
+    public ResponseEntity<HashMap<String, Object>> generateGetFilesResponse(String successMessage, List<FileModel> data) {
+		
+		HashMap<String, Object> resBody = generateCommonResBody();
+		resBody.put("message", successMessage);
+		resBody.put("data", data);
+    	HttpHeaders headers = generateHeaders();
+    	
+    	ResponseEntity<HashMap<String, Object>> successResponse = new ResponseEntity<HashMap<String, Object>>(resBody, headers, HttpStatus.OK);
+    	return successResponse;
+    }
+    
+    private HashMap<String, Object> generateCommonResBody() {
+    	HashMap<String, Object> resBody = new HashMap<String, Object>();
+    	resBody.put("project_code", PROJECT_CODE);
+    	resBody.put("workflow_code", WORKFLOW_CODE);
+    	resBody.put("first_task_uid", TASK_UID);
+		
+		return resBody;
+    }
+    
+    private String generateURL(HashMap<String, Object> resBody) {
+    	String finalUrl = "-";
+    	try {
+	    	ObjectMapper objectMapper = new ObjectMapper();
+	        String jsonString = objectMapper.writeValueAsString(resBody);
+	        String encoded = URLEncoder.encode(jsonString, StandardCharsets.UTF_8);
+	        finalUrl = "https://www.localhost.com/api/upload-file?filter=" + encoded;
+    	} catch (Exception e) {
+    		System.out.println(e.getMessage());
+    	}
+    	System.out.println(finalUrl);
+    	return finalUrl;
     }
     
     private HttpHeaders generateHeaders() {
     	HttpHeaders headers = new HttpHeaders();
+    	headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setBearerAuth(API_TOKEN);
         return headers;
     }
 }

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Spring Boot File Upload</title>
+  <title>Spring Boot File Upload & File Retrieval</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -31,27 +31,27 @@
     <button type="submit">Upload</button>
   </form>
 
-  <h3>Uploaded Files</h3>
-  <div id="file-list">
-    <table>
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Filename</th>
-          <th>Type</th>
-          <th>Size (bytes)</th>
-          <th>Path</th>
-        </tr>
-      </thead>
-      <tbody id="filesTableBody"></tbody>
-    </table>
-  </div>
+  <h2>File List</h2>
+  <button id="getFilesBtn">Get All Files</button>
+  <table id="file-list">
+    <thead>
+      <tr>
+        <th>File ID</th>
+        <th>File Name</th>
+        <th>File Size</th>
+        <th>Upload Date</th>
+      </tr>
+    </thead>
+    <tbody id="filesTableBody"></tbody>
+  </table>
 
   <script>
     const form = document.getElementById('uploadForm');
     const fileInput = document.getElementById('fileInput');
     const filesTableBody = document.getElementById('filesTableBody');
+    const getFilesBtn = document.getElementById('getFilesBtn');
 
+    // Upload File Functionality
     form.addEventListener('submit', async function (e) {
       e.preventDefault();
       const file = fileInput.files[0];
@@ -60,42 +60,44 @@
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch('/api/register-job-batch-file', {
+      const response = await fetch('/api/upload-file', {
         method: 'POST',
         body: formData
       });
-
+      
+      const data = await response.json();
       if (response.ok) {
-		const responseData = await response.json();
-		console.log(responseData);
         alert("File uploaded successfully!");
-        loadFiles();
+		alert(data.url);
+        console.log(data);
       } else {
-		const responseData = await response.json();
-		console.log(responseData);
-        alert("Failed to upload file.");
+        alert("Upload failed!");
+        console.error(data);
       }
     });
 
-    async function loadFiles() {
-      const res = await fetch('/api/load');
-      const files = await res.json();
+    // Fetch All Files Functionality
+    getFilesBtn.addEventListener('click', async function () {
+      const response = await fetch('api/get-all-files');
+      const files = await response.json();
 
-      filesTableBody.innerHTML = '';
-      files.forEach(file => {
-        const row = `<tr>
-          <td>${file.id}</td>
-          <td>${file.fileName}</td>
-          <td>${file.fileType}</td>
-          <td>${file.size}</td>
-          <td>${file.filePath}</td>
-        </tr>`;
-        filesTableBody.innerHTML += row;
-      });
-    }
-
-    // Load files on page load
-    loadFiles();
+      if (response.ok) {
+        filesTableBody.innerHTML = "";
+        files.data.forEach(file => {
+          const row = `<tr>
+            <td>${file.fileId}</td>
+            <td>${file.fileName}</td>
+            <td>${file.fileSize}</td>
+            <td>${file.uploadDate}</td>
+          </tr>`;
+          filesTableBody.innerHTML += row;
+        });
+      } else {
+        alert("Failed to fetch files!");
+        console.error(files);
+      }
+    });
+	
   </script>
 </body>
 </html>
